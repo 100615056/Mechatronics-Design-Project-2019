@@ -1,0 +1,34 @@
+#include <DueTimer.h>
+#include <CytronMotorDriver.h>
+
+//Sensor Pins
+
+int IR_Pin1 =  A0;
+int IR_Pin2 = A1;
+float IR_distance1 = 0;
+float IR_distance2 = 0;
+
+
+void Interrupt() {
+  //ReadSensors();
+  //CalculateRequiredWheelSpeeds();
+  //ControlWheelSpeeds();
+}
+
+void setup() {
+  // put your setup code here, to run once:
+  Timer3.attachInterrupt(Interrupt);
+  Timer3.start(50000); // Every 50 ms
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+}
+
+void ReadSensors() {
+  int read1 = analogRead(IR_Pin1);
+  int read2 = analogRead(IR_pin2);
+  IR_distance1 = read1;
+  IR_distance2 = read2;
+}
