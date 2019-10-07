@@ -1,0 +1,32 @@
+int IR_Pin1 = A0; //On Left
+int IR_Pin2 = A1; //On Right
+float distance1 = 0;
+float distance2 = 0;
+int totalread = 0;
+
+#define PI 3.1415926535897932384626433832795
+void setup() {
+  Serial.begin(56700);
+}
+
+void loop() {
+  int read1 = 0;
+  int read2 = analogRead(IR_Pin2);
+  for (int i = 0; i<20;i++)
+  {
+    read1 = read1+analogRead(IR_Pin1);
+    read2 = read2+analogRead(IR_Pin2);
+ }
+
+ read1 = read1/20;
+ read2 = read2/20;
+  
+  distance1 = -0.05198*read1 +36.23;
+  distance2 = -0.09517*read2+72.59;
+  Serial.print("Sensor1: ");
+  Serial.print(distance1);
+  Serial.print(" ' ");
+  Serial.print("Sensor2: ");
+  Serial.println(distance2);
+  delay(500);
+}
