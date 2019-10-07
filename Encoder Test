@@ -1,0 +1,49 @@
+
+#include <Encoder.h>
+#include <DueTimer.h>
+
+float encoder1_speed = 0;
+float encoder2_speed = 0;
+
+long newPosition1 = 0;
+long newPosition2 = 0;
+
+Encoder EncoderA(4, 5); 
+Encoder EncoderB(6,7);
+
+//   avoid using pins with LEDs attached
+
+void setup() {
+  Serial.begin(57600);
+  Timer3.attachInterrupt(TimerInterrupt);
+  Timer3.start(80000); // Calls every 80ms
+  Serial.println("Basic Encoder Test:");
+
+}
+
+long oldPosition1  = 0;
+long oldPosition2  = 0;
+
+void TimerInterrupt()
+{
+    newPosition1 = EncoderA.read();
+    newPosition2 = EncoderB.read();
+    encoder1_speed = (newPosition1 - oldPosition1)/0.08; //ticks per second
+    encoder2_speed = (newPosition2 - oldPosition2)/0.08; //ticks per second
+    oldPosition1 = newPosition1;
+    oldPosition2 = newPosition2;
+}
+
+
+
+void loop() {
+  Serial.print("encoder1 speed: ");
+  Serial.print(encoder1_speed);
+  Serial.print (" , ");
+  Serial.print("encoder2 speed: ");
+  Serial.println(encoder2_speed);
+//  Serial.print(newPosition1);
+//  Serial.print(" , ");
+//  Serial.println(newPosition2);
+  delay(100);
+}
