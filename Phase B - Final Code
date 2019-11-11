@@ -1,5 +1,6 @@
 #include <DueTimer.h>
 #include <Encoder.h>
+#include <Servo.h>
 #include <CytronMotorDriver.h>
 
 
@@ -83,10 +84,21 @@ double sign_of_heading_error = 0;
 double heading_error = 0;
 int waypoint_counter = 0;
 
+//Servo
+
+Servo ServoLeft;
+Servo ServoRight;
+
+int LeftServo = 0;
+int RightServo = 0;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   Serial1.begin(9600);
+
+  ServoLeft.attach(8);// attaches the left servo on pin 9 to the servo object
+  ServoRight.attach(9); //attaches right servo to pin 8
 
   Timer1.attachInterrupt(TimerInterrupt);
   Timer1.start(80000); // Calls every 80ms
@@ -103,16 +115,46 @@ void TimerInterrupt() {
   MotorSpeeds(LeftPWM, RightPWM);
   WheelOdometry();
   WayPointCheck();
-}
+  RunServo();
+  }
 
 
-void loop() {
+  void loop() {
   //WayPointPrint();
   //OdometryPrint();
   //WheelPrint();
   delay(100);
 }
 
+
+void RunServo() {
+  for (int i = 0; i < 90; i += 1) {
+    RightServo = 180;     // servoright doesn't move            
+    LeftServo = 0;        // servoleft doesnt move
+    ServoRight.write(RightServo);
+    ServoLeft.write(LeftServo);
+    delay(100);   
+  }
+  
+  //Step 2
+  for (int i = 0; i < 90; i += 1) {
+    RightServo = 90 + i;       // servoright from 90 to 180 degrees
+    LeftServo = 90 - i;         // servoleft from 90 to 0 degrees
+    
+    //the reason the servos move in different rotations is because of the way the motor is facing.
+    ServoRight.write(RightServo);
+    ServoLeft.write(LeftServo);
+    delay(200);                    // waits for the servo to get there
+  }
+  //Step 3
+  for (int i = 0; i < 90; i += 1) {
+    RightServo = 180;           // servoright doesn't move
+    LeftServo = 0;              // servoleft doesnt move
+    ServoRight.write(RightServo);
+    ServoLeft.write(LeftServo);
+    delay(100);
+  }
+}
 double WayPoints[4][2] = {{0, 35}, {35, 35}, {35, 0}, {0, 0}}; //{{0, 17.6}, {19.7, 19.7}}; //WayPoint Array
 
 //Functions
