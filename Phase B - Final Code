@@ -127,7 +127,7 @@ void TimerInterrupt() {
 }
 
 
-void RunServo() {
+void RunServo() { //Level 3
   for (int i = 0; i < 90; i += 1) {
     RightServo = 180;     // servoright doesn't move            
     LeftServo = 0;        // servoleft doesnt move
@@ -161,7 +161,7 @@ double WayPoints[4][2] = {{0, 35}, {35, 35}, {35, 0}, {0, 0}}; //{{0, 17.6}, {19
 
 
 //Function for Navigation through the maze using the wheel odometry values to calculate the desired direction and remaining distance from Way Points
-void WayPointCheck() {
+void WayPointCheck() { //Level 3
 
   future_x_position = WayPoints[0][waypoint_counter];
   future_y_position = WayPoints[1][waypoint_counter];
