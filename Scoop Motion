@@ -1,0 +1,23 @@
+#include <Servo.h>
+
+Servo myservo;  // create servo object to control a servo
+
+int Scoop = 0;    // variable to store the servo position
+
+void setup() {
+  Serial.begin(9600);
+  myservo.attach(9);  // attaches the servo on pin 9 to the servo object
+}
+
+void loop() {
+  delay(1000);
+  for (Scoop = 10; Scoop <= 70; Scoop += 1) { // goes from pick up position to holding position 
+    // in steps of 1 degree
+    myservo.write(Scoop);              
+    delay(20);                       
+  }
+  for (Scoop = 75; Scoop >= 10; Scoop -= 1) { // goes from hold position to dump position 
+    myservo.write(Scoop);             
+    delay(20);                       
+  }
+}
