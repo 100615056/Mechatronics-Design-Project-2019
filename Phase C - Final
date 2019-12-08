@@ -1,0 +1,379 @@
+#include <DueTimer.h>
+#include <Encoder.h>
+#include <CytronMotorDriver.h>
+
+// Configure the motor driver.
+CytronMD LeftMotor(PWM_DIR, 5, 4);   // PWM 1A = Pin 5, PWM 1B = Pin 4. //Left Motor
+CytronMD RightMotor(PWM_DIR, 6, 7); // PWM 2A = Pin 6, PWM 2B = Pin 7. //Right Motor
+
+//Encoder Configurations
+Encoder EncoderLeft(24, 25); //Left Encoder
+Encoder EncoderRight(22, 23); //Right Encoder
+
+//Correction for Odometry Errors
+float Ed, cl, cr;
+float Correction = 0;
+
+//Speed Calculation Variables
+float LeftSpeed = 0;
+float RightSpeed = 0;
+
+float OldLeftPosition, NewLeftPosition;
+float OldRightPosition, NewRightPosition;
+
+float LeftPositionChange, RightPositionChange;
+float LeftChange, RightChange; //For Odometry in ActualWheelSpeeds function
+float LSpeed, RSpeed;
+
+//PID Configuration
+
+//Left Wheel
+double Lkp = 5;
+double Lki = 5;
+double Lkd = -2;
+
+double L_Error, L_PreviousError, L_LastError;
+double L_Input, L_ControlTerm;
+double L_CumulativeError, L_RateError;
+double LeftSetPoint = 0;
+double LeftPWM;
+
+//RightWheel
+double Rkp = 5;
+double Rki = 5;
+double Rkd = -2;
+
+double R_Error, R_PreviousError, R_LastError;
+double R_Input, R_ControlTerm;
+double RightSetPoint = 0;
+double R_CumulativeError, R_RateError;
+double RightPWM;
+
+//Wheel Odometry
+
+#define PI 3.14159
+
+const double wheelbase = 9.92; //cm updated
+float theta = 0; //rad
+float delta_distance, delta_theta;
+float delta_left = 0;
+float delta_right = 0;
+
+float current_x_position = 0;
+float current_y_position = 0;
+
+//WayPoint Check
+float future_x_position, future_y_position;
+float x_change, y_change;
+
+double remaining_distance;
+double desired_heading;
+
+double sign_of_heading_error = 0;
+double heading_error = 0;
+int waypoint_counter = 0;
+
+double k_pfwd = 5;
+double kp = 10;
+double ki = 0.05;
+
+float DrivingSpeed = 0;
+float TurningRate = 0;
+float T_Error, Turn_CumulativeError;
+
+void setup() {
+  //Serial.begin(9600); //Regular
+  Serial1.begin(9600); //For Bluetooth Module
+
+  //Set Start Position in Maze
+  current_x_position = 0;
+  current_y_position = 10.125;
+
+  delay(2000);
+
+  Timer1.attachInterrupt(TimerInterrupt);
+  Timer1.start(80000); // Calls every 80ms
+}
+
+void TimerInterrupt() {
+  CalculateActualWheelSpeeds();
+  L_ControlTerm = LeftW_PID(EncToDist(LeftSpeed));
+  R_ControlTerm = RightW_PID(EncToDist(RightSpeed));
+
+  LeftPWM = LeftSpeed2PWM(LeftSetPoint) + L_ControlTerm; //Adjust Left Wheel Speed
+  RightPWM = RightSpeed2PWM(RightSetPoint) + R_ControlTerm; //Adjust Right Wheel Speed
+  MotorSpeeds(LeftPWM, RightPWM);
+  WheelOdometry();
+  WayPointCheck();
+}
+
+
+void loop() {
+  WayPointPrint();
+  //OdometryPrint();
+  //WheelPrint();
+  //SerialInput();
+}
+
+//Array for Way Points
+double XCor[] = {30, 30, 45.5, 32.8, 25, 94.75, 90};
+double YCor[] = {10.125, 48, 48, 48, 137, 139, -14.87};
+
+//Functions
+
+//Navigation through the maze using the wheel odometry values to calculate the desired direction and remaining distance from Way Points
+//Level 3
+void WayPointCheck() {
+
+  future_x_position = XCor[waypoint_counter];
+  future_y_position = YCor[waypoint_counter];
+
+  x_change = future_x_position - current_x_position;
+  y_change = future_y_position - current_y_position;
+
+  remaining_distance = sqrt(pow(x_change, 2) + pow(y_change, 2));
+  desired_heading = atan2(y_change, x_change);
+
+  if (remaining_distance < 0.5) //Condition to change to next Way Point
+  {
+    waypoint_counter++;
+    Turn_CumulativeError = 0;
+  }
+
+  if (waypoint_counter == 7) { //DO NOT FORGET TO CHANGE
+    MotorSpeeds(0, 0);
+  }
+
+  heading_error = (desired_heading - theta);
+
+  while (heading_error > PI)
+  {
+    heading_error = heading_error - 2 * PI;
+  }
+  while (heading_error < -PI)
+  {
+    heading_error = heading_error + 2 * PI;
+  }
+
+  float sign = 0;
+
+  if (heading_error > 0)
+  {
+    sign = 1;
+  }
+  else
+  {
+    sign = -1;
+  }
+
+  //Control Driving Speed and Turning
+
+  DrivingSpeed = 10 - k_pfwd * (abs(heading_error));
+
+  if (abs(heading_error) > 0.5) {
+    DrivingSpeed = 0;
+    //TurningRate = 0;
+  }
+
+  if (abs(heading_error) < 0.5) {
+    Turn_CumulativeError += abs(heading_error);
+  }
+
+  TurningRate = kp * abs(heading_error) + ki * Turn_CumulativeError;
+
+  LeftSetPoint = DrivingSpeed + (-sign * TurningRate);
+  RightSetPoint = DrivingSpeed + (sign * TurningRate);
+}
+
+//Function to print values from WayPointCheck()
+void WayPointPrint() {
+  Serial1.print(" x: ");
+  Serial1.print(current_x_position);
+  Serial1.print(" y: ");
+  Serial1.print(current_y_position);
+  Serial1.print(" theta: ");
+  Serial1.println(theta * 180 / PI);
+  //Serial1.print(" des_heading ");
+  //Serial1.print(desired_heading * 180 / PI);
+  Serial1.print(" headn_err: ");
+  Serial1.println(heading_error * 180 / PI);
+  Serial1.print( " Goalx: ");
+  Serial1.print(future_x_position);
+  Serial1.print(" Goaly: ");
+  Serial1.print(future_y_position);
+  //Serial1.print(" DrivingSpeed: ");
+  //Serial1.print(DrivingSpeed);
+  //Serial1.print(" TurnRate: ");
+  //Serial1.print(TurningRate);
+  Serial1.println();
+  //delay(500);
+}
+
+//Function to do the positions and angels for Wheel Odemtry - Level 2
+void WheelOdometry()
+{
+  delta_distance = (delta_left + delta_right) / 2; //distance travelled
+
+  delta_theta = (delta_right - delta_left) / wheelbase;
+
+  theta = theta + delta_theta; //current angle
+
+  current_x_position = current_x_position + delta_distance * cos(theta);
+  current_y_position = current_y_position + delta_distance * sin(theta);
+}
+
+//Function to print OdometryPrint() values
+void OdometryPrint() {
+  //Serial.print(" dl: ");
+  //Serial.print(delta_left);
+  //Serial.print(" dr: ");
+  //Serial.print(delta_right);
+  Serial1.print(" x: ");
+  Serial1.print(current_x_position);
+  Serial1.print(" y: ");
+  Serial1.print(current_y_position);
+  Serial1.print(" theta: ");
+  Serial1.println(theta * 180 / PI);
+}
+
+//Function to limit the speed input values - Level 1
+
+void MotorSpeeds(int lmotor, int rmotor)
+{
+  if (lmotor > 255)
+  {
+    LeftMotor.setSpeed(255);
+  }
+  if (lmotor < -255)
+  {
+    LeftMotor.setSpeed(-255);
+  }
+  else
+    LeftMotor.setSpeed(lmotor);
+
+  if (rmotor > 255)
+  {
+    RightMotor.setSpeed(255);
+  }
+  if (rmotor < -255)
+  {
+    RightMotor.setSpeed(-255);
+  }
+  else {
+    RightMotor.setSpeed(rmotor);
+  }
+}
+
+//Function to test the kp,ki,kd values for the PID controller through the serial monitor
+void SerialInput() {
+  while (Serial.available() > 0) {
+    Lkp = Serial.parseFloat();
+    Lki = Serial.parseFloat();
+    Lkd = Serial.parseFloat();
+    if (Serial.read() == '\n') {
+    }
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
+  }
+  Serial.print(" Speed: "); //Take out of function, just here for storage - Put in while loop
+  Serial.print(EncToDist(RightSpeed));
+  Serial.print(" kp: ");
+  Serial.print(Rkp);
+  Serial.print(" ki: ");
+  Serial.print(Rki);
+  Serial.print(" kd: ");
+  Serial.println(Rkd);
+}
+
+//PID Control Terms for Both Wheels - Level 1
+double LeftW_PID(double Lmeasurement) { //Calculate Left Motor PID term
+  L_Error = LeftSetPoint - Lmeasurement;
+  L_CumulativeError += L_Error;
+  L_RateError = L_LastError - L_Error;
+  double Lout = Lkp * L_Error + Lki * L_CumulativeError + Lkd * L_RateError;
+  //Serial.println(out);
+  L_LastError = L_Error;
+  return Lout;
+}
+
+double RightW_PID(double Rmeasurement) { //Calculate Right Motor PID term
+  R_Error = RightSetPoint - Rmeasurement;
+  R_CumulativeError += R_Error;
+  R_RateError = R_LastError - R_Error;
+  double Rout = Rkp * R_Error + Rki * R_CumulativeError + Rkd * R_RateError;
+  //Serial.println(out);
+  R_LastError = R_Error;
+  return Rout;
+}
+
+//Function to go from Speed Value to PWM - Level 1
+float LeftSpeed2PWM(float LSpeed) {
+
+  if (LSpeed < 0)
+  {
+    LSpeed = LSpeed * -1;
+    return -(0.0023 * pow(LSpeed, 4) - 0.0866 * pow(LSpeed, 3) + 1.1141 * pow(LSpeed, 2) - (2.0614 * LSpeed) + 40.738);
+  }
+  else
+    return 0.0023 * pow(LSpeed, 4) - 0.0866 * pow(LSpeed, 3) + 1.1141 * pow(LSpeed, 2) - (2.0614 * LSpeed) + 40.738;
+}
+
+float RightSpeed2PWM(float RSpeed) { //Function to go from Speed Value to PWM
+  if (RSpeed < 0) {
+    RSpeed = RSpeed * -1;
+    return -(0.0023 * pow(RSpeed, 4) - 0.0866 * pow(RSpeed, 3) + 1.1141 * pow(RSpeed, 2) - (2.0614 * RSpeed) + 40.738);
+  }
+  else
+    return 0.0023 * pow(RSpeed, 4) - 0.0866 * pow(RSpeed, 3) + 1.1141 * pow(RSpeed, 2) - (2.0614 * RSpeed) + 40.738;
+}
+
+//Function to print values from CalculateActualWheelSpeeds()
+void WheelPrint() {
+  Serial.print(" Left ");
+  Serial.print(EncToDist(NewLeftPosition));
+  Serial.print(" Right: ");
+  Serial.print(EncToDist(NewRightPosition));
+  Serial.print(" LeftSpeed: ");
+  Serial.print(EncToDist(LeftSpeed));
+  Serial.print(" RightSpeed: ");
+  Serial.println(EncToDist(RightSpeed));
+  //Serial.println(translation);
+  delay(100);
+}
+
+
+
+//To go from encoder value to distance and correct Odometry Error
+float EncToDist(float EncoderValue) { //Base Level
+  Ed = 59.58 / 59.18;
+  cl = 2 / (Ed + 1);
+  cr = 2 / ((1 / Ed) + 1);
+  Correction = cl / cr;
+  return (EncoderValue / 311.38) * Correction; //53/50 = 1.06; //Source: Correction of Systematic Odometry Errors in Mobile Robots
+}
+
+//Calculate Wheel Positions and Wheel Speeds
+
+void CalculateActualWheelSpeeds() { //Base Level
+  //Motor Position and Speed
+  NewLeftPosition = EncoderLeft.read();
+  NewRightPosition = EncoderRight.read();
+
+  LeftPositionChange = NewLeftPosition - OldLeftPosition; //Change in Left Position
+  RightPositionChange = NewRightPosition - OldRightPosition; //Change in Right Position
+
+  LeftSpeed = (LeftPositionChange) / 0.08; //ticks per second
+  RightSpeed = (RightPositionChange) / 0.08; //ticks per second
+
+  //For Odometry
+  LeftChange = LeftPositionChange;
+  RightChange = RightPositionChange;
+
+  delta_left = EncToDist(LeftChange);
+  delta_right = EncToDist(RightChange);
+
+  //Update Positions
+  OldLeftPosition = NewLeftPosition;
+  OldRightPosition = NewRightPosition;
+}
