@@ -11,6 +11,8 @@ Encoder EncoderLeft(24, 25); //Left Encoder
 Encoder EncoderRight(22, 23); //Right Encoder
 
 //Correction for Odometry Errors
+double RightD = 59.58;
+double LeftD = 59.18;
 float Ed, cl, cr;
 float Correction = 0;
 
@@ -24,6 +26,10 @@ float OldRightPosition, NewRightPosition;
 float LeftPositionChange, RightPositionChange;
 float LeftChange, RightChange; //For Odometry in ActualWheelSpeeds function
 float LSpeed, RSpeed;
+
+//For Odometry in ActualWheelSpeeds function
+float delta_left = 0;
+float delta_right = 0;
 
 //PID Configuration
 
@@ -52,12 +58,9 @@ double RightPWM;
 //Wheel Odometry
 
 #define PI 3.14159
-
 const double wheelbase = 9.92; //cm updated
-float theta = 0; //rad
 float delta_distance, delta_theta;
-float delta_left = 0;
-float delta_right = 0;
+float theta = 0; //rad
 
 float current_x_position = 0;
 float current_y_position = 0;
@@ -69,7 +72,6 @@ float x_change, y_change;
 double remaining_distance;
 double desired_heading;
 
-double sign_of_heading_error = 0;
 double heading_error = 0;
 int waypoint_counter = 0;
 
@@ -79,7 +81,7 @@ double ki = 0.05;
 
 float DrivingSpeed = 0;
 float TurningRate = 0;
-float T_Error, Turn_CumulativeError;
+float TurnCumulativeError;
 
 void setup() {
   //Serial.begin(9600); //Regular
@@ -137,7 +139,7 @@ void WayPointCheck() {
   if (remaining_distance < 0.5) //Condition to change to next Way Point
   {
     waypoint_counter++;
-    Turn_CumulativeError = 0;
+    TurnCumulativeError = 0;
   }
 
   if (waypoint_counter == 7) { //DO NOT FORGET TO CHANGE
@@ -172,14 +174,13 @@ void WayPointCheck() {
 
   if (abs(heading_error) > 0.5) {
     DrivingSpeed = 0;
-    //TurningRate = 0;
   }
 
   if (abs(heading_error) < 0.5) {
-    Turn_CumulativeError += abs(heading_error);
+    TurnCumulativeError += abs(heading_error);
   }
 
-  TurningRate = kp * abs(heading_error) + ki * Turn_CumulativeError;
+  TurningRate = kp * abs(heading_error) + ki * TurnCumulativeError;
 
   LeftSetPoint = DrivingSpeed + (-sign * TurningRate);
   RightSetPoint = DrivingSpeed + (sign * TurningRate);
@@ -292,7 +293,6 @@ double LeftW_PID(double Lmeasurement) { //Calculate Left Motor PID term
   L_CumulativeError += L_Error;
   L_RateError = L_LastError - L_Error;
   double Lout = Lkp * L_Error + Lki * L_CumulativeError + Lkd * L_RateError;
-  //Serial.println(out);
   L_LastError = L_Error;
   return Lout;
 }
@@ -342,19 +342,16 @@ void WheelPrint() {
   delay(100);
 }
 
-
-
 //To go from encoder value to distance and correct Odometry Error
 float EncToDist(float EncoderValue) { //Base Level
-  Ed = 59.58 / 59.18;
+  Ed = RightD / LeftD;
   cl = 2 / (Ed + 1);
   cr = 2 / ((1 / Ed) + 1);
   Correction = cl / cr;
-  return (EncoderValue / 311.38) * Correction; //53/50 = 1.06; //Source: Correction of Systematic Odometry Errors in Mobile Robots
+  return (EncoderValue / 311.38) * Correction; //Source: Correction of Systematic Odometry Errors in Mobile Robots
 }
 
 //Calculate Wheel Positions and Wheel Speeds
-
 void CalculateActualWheelSpeeds() { //Base Level
   //Motor Position and Speed
   NewLeftPosition = EncoderLeft.read();
