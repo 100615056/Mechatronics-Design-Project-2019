@@ -169,7 +169,6 @@ void WayPointCheck() {
   }
 
   //Control Driving Speed and Turning
-
   DrivingSpeed = 10 - k_pfwd * (abs(heading_error));
 
   if (abs(heading_error) > 0.5) {
