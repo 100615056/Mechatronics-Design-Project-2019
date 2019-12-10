@@ -131,6 +131,8 @@ void loop() {
 }
 
 //Functions
+
+//Function to pick up and dump rocks
 void Scooper() {
   while (waypoint_counter < 2) {
     for (Scoop = 80; Scoop >= 0; Scoop -= 1) { // goes from hold position to dump position
