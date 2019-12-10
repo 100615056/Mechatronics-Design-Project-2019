@@ -72,6 +72,11 @@ float current_x_position = 0;
 float current_y_position = 0;
 
 //WayPoint Check
+
+//Array for WayPoints
+double XCor[] = {10, 12};
+double YCor[] = {10.125, 10.125};
+
 float future_x_position, future_y_position;
 float x_change, y_change;
 
@@ -122,6 +127,11 @@ void TimerInterrupt() {
 
 
 void loop() {
+  Scooper();
+}
+
+//Functions
+void Scooper() {
   while (waypoint_counter < 2) {
     for (Scoop = 80; Scoop >= 0; Scoop -= 1) { // goes from hold position to dump position
       myservo.write(Scoop);
@@ -139,13 +149,6 @@ void loop() {
     }
   }
 }
-
-//Array for WayPoints
-double XCor[] = {10, 12};
-double YCor[] = {10.125, 10.125}; 
-
-//Functions
-
 //Function for Navigation through the maze using the wheel odometry values to calculate the desired direction and remaining distance from Way Points
 //Level 3
 void WayPointCheck() {
