@@ -2,7 +2,7 @@
 
 Create an autonomous Load-Haul-Dump (LHD) vechicle to autonomously navigate through a maze.
 
-## Phase C - Final
+## Phase C - Final (https://angelicacusipag.wixsite.com/mechatronics/videos?wix-vod-video-id=5d16bd277d2b4c3b80938566ed45a594&wix-vod-comp-id=comp-keugdvfv1)
 
 - Calculate the wheel positions and wheel speeds and convert them from encoder values to distance measurements; correcting for systematic odemtry errors using equations
 -  Apply the PID controller to each indidivual wheel
